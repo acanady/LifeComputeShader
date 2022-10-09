@@ -1,0 +1,55 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+RWTexture2D<float4> Result;
+float Width;
+float Height;
+sampler2D Input;
+
+uint pcg_hash(uint input)
+{
+    uint state = input * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    float2 position = float2((id.x) / Width, (id.y) / Height);
+    float2 pixelSize = float2(1.0 / Width, 1.0 / Height);
+
+    float4 currentPixel = tex2Dlod(Input, float4(position.x, position.y, 0, 0));
+
+    float4 neighborPixels = float4(0, 0, 0, 0);
+
+    neighborPixels += tex2Dlod(Input, float4(position.x + pixelSize.x, position.y + pixelSize.y, 0, 0));
+    neighborPixels += tex2Dlod(Input, float4(position.x, position.y + pixelSize.y, 0, 0));
+    neighborPixels += tex2Dlod(Input, float4(position.x - pixelSize.x, position.y + pixelSize.y, 0, 0));
+
+    neighborPixels += tex2Dlod(Input, float4(position.x + pixelSize.x, position.y, 0, 0));
+    neighborPixels += tex2Dlod(Input, float4(position.x - pixelSize.x, position.y, 0, 0));
+
+    neighborPixels += tex2Dlod(Input, float4(position.x + pixelSize.x, position.y - pixelSize.y, 0, 0));
+    neighborPixels += tex2Dlod(Input, float4(position.x, position.y - pixelSize.y, 0, 0));
+    neighborPixels += tex2Dlod(Input, float4(position.x - pixelSize.x, position.y - pixelSize.y, 0, 0));
+
+    if (currentPixel.r > 0.5) {
+        if (neighborPixels.r > 1.5 && neighborPixels.r < 3.5) {
+            Result[id.xy] = float4(1, 1, 1, 1);
+        }
+        else {
+            Result[id.xy] = float4(0, 0, 0, 1);
+        }
+    }
+    else {
+        if (neighborPixels.r > 2.5 && neighborPixels.r < 3.5) {
+            Result[id.xy] = float4(1, 1, 1, 1);
+        }
+        else {
+            Result[id.xy] = float4(0, 0, 0, 1);
+        }
+    }
+}
